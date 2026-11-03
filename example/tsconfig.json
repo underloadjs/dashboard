@@ -1,0 +1,39 @@
+{
+    // Typecheck program for the EXAMPLE app (`tsc --noEmit -p example/tsconfig.json`,
+    // the second half of `npm run typecheck`).
+    //
+    // Deliberately standalone (no `extends`): inheriting ../tsconfig.json would
+    // also inherit its `exclude`, which drops the whole example/ directory and
+    // every **/*.test.tsx in it. The example is a browser app, so it gets app
+    // settings (DOM libs, JSX) plus the '@underload/dashboard' path alias that
+    // mirrors the Vite alias in ./vite-shared.ts — without `paths`, tsc would
+    // resolve the import through node_modules to the published dist/*.d.ts
+    // instead of the source the app actually bundles.
+    "compilerOptions": {
+        "module": "ESNext",
+        "target": "ES2022",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        // node types: this program also typechecks the two Vite configs, which
+        // read process.env.
+        "types": ["node"],
+        "strict": true,
+        "noUnusedLocals": true,
+        "noEmit": true,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        // The two Vite configs import ./vite-shared.ts with an explicit extension
+        // (required by Vite's native config loader). This program only typechecks,
+        // so emitting an extension in a specifier is allowed here.
+        "allowImportingTsExtensions": true,
+        "forceConsistentCasingInFileNames": true,
+        // TS 6 deprecates `baseUrl`, and `paths` entries resolve relative to this
+        // file without it, so the alias is declared on its own.
+        "paths": {
+            "@underload/dashboard": ["../src/index.ts"]
+        }
+    },
+    "include": ["src/**/*", "*.ts"],
+    "exclude": ["node_modules", "dist", "../node_modules", "../dist", "../lib"]
+}

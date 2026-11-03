@@ -1,3 +1,21 @@
+# Dependencies (installed fresh per checkout: no lockfile is committed, so CI
+# runs `npm install`; see .github/workflows/deploy-pages.yml).
 node_modules/
+
+# Build outputs — always disjoint so one deploy never clobbers the other:
+#   dist/          library bundle + declarations (`npm run build`, published)
+#   example/dist/  static example site (`npm run example:build`, GitHub Pages)
 dist/
+lib/
+example/dist/
+
+# Test/Vite caches and coverage.
 coverage/
+.vite/
+example/.vite/
+
+# Scratch space for local agent/tooling probes (repo-root policy: Temp/, never OS temp).
+Temp/
+
+# Incremental tsc state.
+*.tsbuildinfo

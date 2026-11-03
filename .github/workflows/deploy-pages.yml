@@ -1,0 +1,156 @@
+# Verifies the core, builds the library and the example site, then publishes the
+# example to GitHub Pages on pushes to main.
+#
+# This package is a STANDALONE repo (git@github.com:underloadjs/dashboard), so the
+# workflow installs from the public registry rather than from the monorepo, and it
+# installs with **Yarn 1 classic**, not npm:
+#
+#   Why not npm: npm 11.5.1 (bundled with Node 24) fails structurally on a clean
+#   standalone install of this dependency tree — @npmcli/arborist throws
+#   "Cannot read properties of undefined (reading 'edgesOut')" inside
+#   #loadPeerSet while resolving the vitest 4 peer graph. Reproduced locally with
+#   an isolated cache and userconfig, so it is not a stale-node_modules or
+#   private-registry artifact; nothing in this package's scripts is involved.
+#   Yarn 1 resolves the exact same tree, and the whole gate sequence below passes
+#   behind it.
+#   Why yarn1 specifically: it is already the host/developer toolchain here (see
+#   the lockfile note below), so CI matches how the package is installed locally.
+#   Why pinned through a global npm install instead of corepack: corepack ships
+#   with Node 24 (0.34.x) but is deprecated/on its way out of the runtime, needs
+#   COREPACK_ENABLE_DOWNLOAD_PROMPT=0 in CI, and with no `packageManager` field it
+#   would resolve through its lastKnownGood channel. `npm install --global
+#   yarn@1.22.22` is one command, one exact version, no runtime-coupled shim.
+#
+# No lockfile is committed — the same deliberate choice as the sibling harness
+# (.github/workflows/ci.yml): versions are caret ranges, so a fresh upstream minor
+# can appear in CI without a commit. A committed package-lock.json/yarn.lock would
+# be byte-reproducible but is dead weight inside the monorepo, where the yarn1
+# host already owns lockfiles; revisit if the package starts publishing regularly.
+# Consequence, stated plainly: `yarn install` is NOT `--frozen-lockfile`, it
+# resolves fresh every run, and the generated yarn.lock only ever exists inside the
+# runner's ephemeral checkout (nothing is ever committed or pushed from CI).
+# setup-node dependency caching stays OFF for the same reason — `cache: npm|yarn`
+# hashes a lockfile that does not exist here.
+#
+# What gets deployed: example/dist — the harness-inspired workstation demo.
+# The library build (dist/) is NOT the Pages artifact; it has no index.html, and
+# the two outputs are disjoint directories so neither build clobbers the other.
+#
+# The example imports '@underload/dashboard' from library SOURCE through the
+# alias in example/vite-shared.ts, so Pages always demos the committed core with
+# no publish-and-bump dance.
+#
+# One-time repo setting (required once, not per deploy):
+#   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
+# Documented again in example/README.md.
+
+name: Deploy example to GitHub Pages
+
+on:
+    push:
+        branches: [main]
+    # Pull requests get the same checks but never publish (see the `if` guards).
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+# One deploy at a time. cancel-in-progress is FALSE on purpose: cancelling a
+# queued run mid-deploy can abort the in-flight deploy-pages job and leave the
+# GitHub Pages environment half-published. A newer push simply queues instead.
+# PR runs get their own group (per ref) so a PR check never cancels a main deploy.
+concurrency:
+    group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.ref) || 'pages' }}
+    cancel-in-progress: false
+
+jobs:
+    build:
+        # Pinned while ubuntu-latest migrates to Ubuntu 26 (runner-images #14748),
+        # matching packages/underload/bench/.github/workflows/deploy-pages.yml.
+        runs-on: ubuntu-24.04
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+
+            - name: Setup Node
+              uses: actions/setup-node@v5
+              with:
+                  node-version: 24
+                  # No `cache:` here on purpose: setup-node's cache hashes a lockfile
+                  # and none is committed (see header), so there is nothing to key on.
+
+            # Explicit Yarn 1 instead of relying on the runner image's preinstalled
+            # yarn (image-dependent) or on corepack (deprecated in Node, and
+            # ambiguous without a packageManager field). The global npm install
+            # touches only npm's GLOBAL tree — yarn has no peer deps — so it stays
+            # clear of the arborist peer-graph failure documented in the header.
+            - name: Setup Yarn 1 (pinned)
+              run: npm install --global yarn@1.22.22
+
+            # No lockfile is committed, so this resolves fresh: yarn1's plain
+            # `install` is the right call (no --frozen-lockfile to claim). It writes
+            # yarn.lock inside the runner checkout only; nothing is committed back.
+            - name: Install dependencies
+              run: yarn install --non-interactive
+
+            # Gate steps below keep `npm run`: npm is used purely as the script
+            # runner here. It reads package.json and puts node_modules/.bin (which
+            # yarn1 creates) on PATH — it never re-resolves or rewrites the tree.
+            # Library program plus the example program (two tsc runs, one script).
+            - name: Typecheck
+              run: npm run typecheck
+
+            - name: Test core
+              run: npm test
+
+            - name: Test example
+              run: npm run test:example
+
+            - name: Build library
+              run: npm run build
+
+            # Published-artifact gates, run against the dist/ that was just
+            # built: the declaration-specifier rewriter's own unit tests, then
+            # the pack/exports/NodeNext type-resolution checks. These are the
+            # same steps `prepublishOnly` runs, so CI proves the exact gate a
+            # standalone `npm publish` would enforce (CI itself publishes nothing).
+            - name: Test declaration specifier script
+              run: npm run test:package:scripts
+
+            - name: Check published package
+              run: npm run test:package
+
+            # Pages serves this repo under /<repo-name>/ (currently /dashboard/),
+            # so asset URLs must be base-prefixed — a default '/' base would 404
+            # every asset at https://<owner>.github.io/dashboard/. The repo name
+            # is used rather than a literal so a rename/fork keeps working; a
+            # custom domain overrides it with EXAMPLE_BASE (see example/README.md).
+            - name: Build example
+              run: npm run example:build -- --base=/${{ github.event.repository.name }}/
+
+            - name: Configure Pages
+              if: github.event_name != 'pull_request'
+              uses: actions/configure-pages@v5
+
+            - name: Upload Pages artifact
+              if: github.event_name != 'pull_request'
+              uses: actions/upload-pages-artifact@v3
+              with:
+                  # The example site build, NOT the root dist/ (library output).
+                  path: example/dist
+
+    deploy:
+        # PRs only verify; pushes to main (and manual runs) publish.
+        if: github.event_name != 'pull_request'
+        runs-on: ubuntu-24.04
+        needs: build
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v4

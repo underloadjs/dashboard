@@ -1,0 +1,34 @@
+{
+    // Declaration-emit config for the published entry (`tsc -p tsconfig.build.json`,
+    // run by `npm run build` after `vite build`). Mirrors the harness convention
+    // (packages/underload/harness/tsconfig.build.json): JS comes from Vite lib
+    // mode, .d.ts comes from tsc.
+    //
+    // Emit map (rootDir src -> outDir dist):
+    //   src/index.ts      -> dist/index.d.ts     (package.json "types" / exports.types)
+    //   src/<module>.ts   -> dist/<module>.d.ts  (internal, reachable from the barrel)
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "emitDeclarationOnly": true,
+        "declaration": true,
+        "rootDir": "src",
+        "outDir": "dist"
+    },
+    "exclude": [
+        "node_modules",
+        "dist",
+        "lib",
+        "coverage",
+        "example",
+        "Temp",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        // Root configs are typechecked (tsconfig.json) but never published, so
+        // no declaration is emitted for them.
+        "vite.config.ts",
+        "vitest.config.ts"
+    ],
+    // Only the published source tree is described: example/** and the root
+    // configs stay out of dist/**.
+    "include": ["src/**/*"]
+}

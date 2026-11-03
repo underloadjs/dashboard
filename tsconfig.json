@@ -1,27 +1,53 @@
 {
-    // Self-contained config (no `extends` outside the repo): this package is a
-    // standalone GitHub repo (git@github.com:underloadjs/dashboard) where
-    // ../../../tsconfig.json does not exist. Options mirror the noobscript
-    // workspace root tsconfig.json so behavior is identical when the package is
-    // developed inside the workspace (same approach as packages/underload/bench
-    // and packages/underload/harness).
+    // Typecheck program for the LIBRARY side of the package (src/ + the root
+    // config files). Self-contained (no `extends` outside the repo): this
+    // package is its own GitHub repo (git@github.com:underloadjs/dashboard),
+    // so ../../../tsconfig.json is not present in a standalone checkout.
+    // Options mirror the noobscript workspace root tsconfig, same approach as
+    // packages/underload/bench and packages/underload/harness.
+    //
+    // The example app is a SEPARATE program (example/tsconfig.json) because it
+    // needs DOM/React app settings and the `@underload/dashboard` path alias;
+    // `npm run typecheck` runs both. Declarations for the published entry come
+    // from tsconfig.build.json.
     "compilerOptions": {
         "module": "ESNext",
         "target": "ESNext",
         "moduleResolution": "bundler",
-        "jsx": "react",
+        // Automatic JSX runtime (matches @vitejs/plugin-react). No .tsx exists
+        // in src/ today; keeping it here means a future src/**/*.tsx needs no
+        // config change.
+        "jsx": "react-jsx",
         "skipLibCheck": true,
         "allowJs": true,
         "experimentalDecorators": true,
-        "declaration": true,
         "esModuleInterop": true,
         "strict": true,
+        "declaration": true,
         "outDir": "./lib",
-        "lib": ["decorators", "dom", "es5", "scripthost", "es2015.collection"],
+        // The core is a generic, dependency-free runtime (no React/DOM/CSS
+        // imports in src/), so only ES + DOM ambient types are needed; `dom`
+        // stays because the built bundle is browser-targeted and
+        // vitest/jsdom typings lean on it.
+        "lib": ["decorators", "dom", "dom.iterable", "es5", "scripthost", "es2015.collection"],
         "types": ["node", "vitest/globals"]
     },
-    "exclude": ["node_modules", "Temp", "**/*.test.ts", "**/dist/*", "**/lib/*"],
-    // All source lives under src/; config files at the package root (this file
-    // and vitest.config.ts) are typechecked too.
+    "exclude": [
+        "node_modules",
+        "Temp",
+        // Build outputs (dist = published bundle + declarations, lib = stray
+        // tsc emit) are never part of any source program.
+        "**/dist",
+        "**/lib",
+        "**/coverage",
+        // Tests are typechecked by vitest at run time; `npm run typecheck`
+        // covers shipped source only (same split as the scaffold had).
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        // The example app has its own program (example/tsconfig.json).
+        "example"
+    ],
+    // Library source plus the root configs (vite.config.ts, vitest.config.ts)
+    // so a typo in either fails `npm run typecheck`.
     "include": ["src/**/*", "*.ts", "*.tsx"]
 }

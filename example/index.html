@@ -1,0 +1,21 @@
+<!doctype html>
+<!--
+  Entry document for the example workstation (root = example/, so Vite serves
+  this at `/` in dev and at `/<repo>/` on GitHub Pages — every asset URL below
+  is emitted base-relative by the build, see example/vite.config.ts).
+
+  Nothing here is feature-specific: the whole workspace, its panels and its
+  status strip are composed at runtime from dashboard() plugin registrations.
+-->
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="dark light" />
+        <title>Underload Workstation — plugin-composed dashboard example</title>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/main.tsx"></script>
+    </body>
+</html>
