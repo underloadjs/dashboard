@@ -1,0 +1,31 @@
+{
+    "name": "@underload/dashboard",
+    "version": "1.0.2",
+    "description": "Dashboard UI for the underload service ecosystem",
+    "main": "src/index.ts",
+    "types": "src/index.ts",
+    "files": [
+        "src"
+    ],
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org"
+    },
+    "dependencies": {
+        "@presource/core": "*",
+        "@presource/react": "*",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0"
+    },
+    "scripts": {
+        "test": "vitest run",
+        "typecheck": "tsc --noEmit",
+        "release": "vite-node ../../../scripts/publish-safe.ts"
+    },
+    "author": "NQQT",
+    "license": "ISC"
+}
