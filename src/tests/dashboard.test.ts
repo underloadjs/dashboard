@@ -7,15 +7,15 @@
 // pins, with exact values.
 //
 // Cross-references:
-//   - ./index.ts     — the barrel under test
-//   - ./dashboard.ts — dashboard() semantics (./lifecycle.test.ts and friends)
-//   - ./errors.ts    — DashboardError shape
+//   - ../dashboard.ts — the entry under test; the barrel and dashboard() semantics
+//     (./lifecycle.test.ts and friends) now live in this one file
+//   - ../core/errors.ts — DashboardError shape
 
 import { describe, expect, it } from 'vitest';
 
-import * as entry from './index';
-import { DashboardError, dashboard } from './index';
-import type { DashboardErrorCode, DashboardErrorDetails } from './index';
+import * as entry from '../dashboard';
+import { DashboardError, dashboard } from '../dashboard';
+import type { DashboardErrorCode, DashboardErrorDetails } from '../dashboard';
 
 describe('@underload/dashboard public entry', () => {
     it('owns exactly two runtime exports, no default', () => {

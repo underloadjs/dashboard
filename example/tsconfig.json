@@ -31,7 +31,7 @@
         // TS 6 deprecates `baseUrl`, and `paths` entries resolve relative to this
         // file without it, so the alias is declared on its own.
         "paths": {
-            "@underload/dashboard": ["../src/index.ts"]
+            "@underload/dashboard": ["../src/dashboard.ts"]
         }
     },
     "include": ["src/**/*", "*.ts"],

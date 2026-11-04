@@ -6,12 +6,12 @@
 // treated as read-only by listeners).
 //
 // Cross-references:
-//   - ./listeners.ts — delivery order + throwing-listener isolation
-//   - ./dashboard.ts — every channel is dropped by dispose(), which is what makes
+//   - ../core/listeners.ts — delivery order + throwing-listener isolation
+//   - ../dashboard.ts      — every channel is dropped by dispose(), which is what makes
 //     "listeners are plugin-owned and disposed" true for api.on AND dashboard.on
 
-import { ListenerSet } from './listeners';
-import { requireHandler, requireIdentifier } from './validate';
+import { ListenerSet } from '../core/listeners';
+import { requireHandler, requireIdentifier } from '../core/validate';
 
 export class EventBus {
     private readonly channels = new Map<string, ListenerSet>();

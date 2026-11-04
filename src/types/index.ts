@@ -1,12 +1,15 @@
-// Public type surface for @underload/dashboard.
+// Public type surface for @underload/dashboard — the whole `types` layer.
 //
 // The framework is headless: nothing here mentions DOM, React, CSS or any
 // harness wire shape. A host (a React app, a vanilla UI, the future harness
 // adapter, a test, a CLI) reads these primitives and renders whatever it likes.
 //
+// This folder holds types only (no runtime code), so every layer may import it
+// without an edge back into `core`, `extensions` or `plugin`.
+//
 // Cross-references:
-//   - ./dashboard.ts — the only runtime factory (dashboard()) and the lifecycle it drives
-//   - ./index.ts     — the single public barrel; this file is the source of the types it re-exports
+//   - ../dashboard.ts — the only runtime factory (dashboard()) and the lifecycle it drives;
+//     it is also the published entry, and re-exports every type below as `export type`
 
 // A reactive value cell. Structurally compatible with React's
 // `useSyncExternalStore(subscribe, () => state.get())`: `subscribe` takes a

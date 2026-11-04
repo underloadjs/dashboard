@@ -1,6 +1,6 @@
 // Service, command and slot registry semantics.
 //
-// Contract pinned here (see ./registries.ts):
+// Contract pinned here (see ../extensions/registries.ts):
 //   - services publish a value by id, stored and returned by reference; an
 //     `undefined` value is still a published service
 //   - commands are named actions whose return value (promise included) reaches
@@ -9,16 +9,16 @@
 //     names, duplicate contribution ids rejected per slot only, and the public
 //     snapshot is sorted by order (default 0) then registration order and frozen
 //   - every registry failure raised during setup surfaces as 'setup-failed' with
-//     the registry error as its cause (./dashboard.ts owns that wrapping)
+//     the registry error as its cause (../dashboard.ts owns that wrapping)
 //
 // Cross-references: ./plugins.test.ts (dependency ordering that makes a
 // getService call legal during setup), ./lifecycle.test.ts (post-dispose reads).
 
 import { describe, expect, it } from 'vitest';
 
-import { DashboardError, dashboard } from './index';
-import type { Dashboard, DashboardContribution, DashboardPlugin, DashboardPluginAPI } from './types';
-import type { DashboardErrorCode } from './errors';
+import { DashboardError, dashboard } from '../dashboard';
+import type { Dashboard, DashboardContribution, DashboardPlugin, DashboardPluginAPI } from '../types';
+import type { DashboardErrorCode } from '../core/errors';
 
 function failureOf(operation: () => unknown): DashboardError {
     try {

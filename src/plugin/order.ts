@@ -11,10 +11,10 @@
 // therefore keep their declared relative order, and the same input always
 // produces the same execution order regardless of Map/Set behaviour.
 //
-// Cross-references: ./dashboard.ts (caller), ./errors.ts (codes below).
+// Cross-references: ../dashboard.ts (caller), ../core/errors.ts (codes below).
 
-import { describeValue, fail } from './errors';
-import type { DashboardOptions, DashboardPlugin } from './types';
+import { describeValue, fail } from '../core/errors';
+import type { DashboardOptions, DashboardPlugin } from '../types';
 
 // Accepts `dashboard()`, `dashboard({})` and `dashboard({ plugins: [] })`
 // identically; unknown option keys are ignored so the shape can grow.

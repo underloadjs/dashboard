@@ -14,7 +14,7 @@ export const EXAMPLE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 // Alias target for '@underload/dashboard'.
 //
-//   default          ../src/index.ts  (library SOURCE — dev, CI, and tests)
+//   default          ../src/dashboard.ts  (library SOURCE — dev, CI, and tests)
 //   DASHBOARD_ENTRY  overrides the target: an absolute path (or a cwd-relative
 //                    one, `path.resolve` keeps absolutes as-is) pointing at e.g.
 //                    the published dist bundle, or at a stub entry used to
@@ -25,7 +25,7 @@ export function exampleResolve(): { alias: Record<string, string> } {
         alias: {
             '@underload/dashboard': override
                 ? path.resolve(EXAMPLE_ROOT, override)
-                : path.resolve(EXAMPLE_ROOT, '../src/index.ts')
+                : path.resolve(EXAMPLE_ROOT, '../src/dashboard.ts')
         }
     };
 }

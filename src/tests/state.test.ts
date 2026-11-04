@@ -1,6 +1,6 @@
 // State cell semantics.
 //
-// Contract pinned here (see ./types.ts DashboardState):
+// Contract pinned here (see ../types/index.ts DashboardState):
 //   - api.state() registers a cell in a GLOBAL id space; dashboard.state() hands
 //     back the very same object (identity, not a copy)
 //   - set() accepts a value or an updater; change detection is reference
@@ -13,13 +13,13 @@
 //   - the shape is what React's useSyncExternalStore expects (subscribe takes a
 //     no-arg callback and returns an unsubscribe; get returns a stable snapshot)
 //
-// Cross-references: ./state.ts (createState/StateRegistry),
-// ./listeners.ts (shared delivery rules), ./lifecycle.test.ts (post-dispose).
+// Cross-references: ../extensions/state.ts (createState/StateRegistry),
+// ../core/listeners.ts (shared delivery rules), ./lifecycle.test.ts (post-dispose).
 
 import { describe, expect, it } from 'vitest';
 
-import { DashboardError, dashboard } from './index';
-import type { DashboardPlugin, DashboardState } from './types';
+import { DashboardError, dashboard } from '../dashboard';
+import type { DashboardPlugin, DashboardState } from '../types';
 
 function failureOf(operation: () => unknown): DashboardError {
     try {

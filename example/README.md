@@ -33,13 +33,13 @@ fixed.
 
 `npm run typecheck` from the package root also covers this program
 (`tsc --noEmit -p example/tsconfig.json`), and it resolves
-`@underload/dashboard` through `paths` to `../src/index.ts` — the same module the
+`@underload/dashboard` through `paths` to `../src/dashboard.ts` — the same module the
 Vite alias in `vite-shared.ts` selects.
 
 **`DASHBOARD_ENTRY` scope:** it overrides the **Vite** alias only — i.e. what
 `example:dev`, `example:build` and `test:example` actually bundle and run. The
 TypeScript side (`example/tsconfig.json` → `paths`) always typechecks against
-`../src/index.ts` and is **not** redirected, so pointing `DASHBOARD_ENTRY` at a
+`../src/dashboard.ts` and is **not** redirected, so pointing `DASHBOARD_ENTRY` at a
 published `dist/` bundle exercises that build at runtime while the types still
 come from source. Set it to an absolute path (or one relative to `example/`);
 `path.resolve` keeps absolutes as-is.

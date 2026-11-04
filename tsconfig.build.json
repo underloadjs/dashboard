@@ -4,9 +4,12 @@
     // (packages/underload/harness/tsconfig.build.json): JS comes from Vite lib
     // mode, .d.ts comes from tsc.
     //
-    // Emit map (rootDir src -> outDir dist):
-    //   src/index.ts      -> dist/index.d.ts     (package.json "types" / exports.types)
-    //   src/<module>.ts   -> dist/<module>.d.ts  (internal, reachable from the barrel)
+    // Emit map (rootDir src -> outDir dist; the tree mirrors the src/ layers):
+    //   src/dashboard.ts     -> dist/dashboard.d.ts         (package.json "types" / exports.types)
+    //   src/<layer>/index.ts -> dist/<layer>/index.d.ts     (layer barrels: core, extensions, plugin, types)
+    //   src/<layer>/<m>.ts   -> dist/<layer>/<m>.d.ts       (internal, reachable from the entry)
+    // Tests never reach dist because `**/*.test.ts` is excluded below, which is
+    // also why they live in src/tests/ rather than beside the entry.
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "emitDeclarationOnly": true,

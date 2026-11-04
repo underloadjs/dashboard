@@ -5,10 +5,10 @@
     "type": "module",
     "main": "./dist/underload-dashboard.mjs",
     "module": "./dist/underload-dashboard.mjs",
-    "types": "./dist/index.d.ts",
+    "types": "./dist/dashboard.d.ts",
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
+            "types": "./dist/dashboard.d.ts",
             "import": "./dist/underload-dashboard.mjs",
             "default": "./dist/underload-dashboard.mjs"
         },

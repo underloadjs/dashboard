@@ -1,7 +1,7 @@
 // One notification channel: an ordered, unsubscribable listener list.
 //
-// Shared by state cells (./state.ts) and event channels (./bus.ts) so both
-// guarantee the same delivery semantics:
+// Shared by state cells (../extensions/state.ts) and event channels
+// (../extensions/bus.ts) so both guarantee the same delivery semantics:
 //   - listeners run synchronously in subscription order
 //   - a snapshot is taken first, so subscribing during a notification does not
 //     run the new listener within that same pass

@@ -1,26 +1,73 @@
-// The dashboard factory: validate -> schedule -> set up -> run -> dispose.
+// The dashboard creation itself — and, being the only file at src/ root, the
+// package's single public entry: validate -> schedule -> set up -> run -> dispose.
+//
+// Layout (the whole point of this file's privileged position):
+//   src/dashboard.ts   ← this file: the factory + the published surface, nothing else
+//   src/core/          ← failure surface, id/handler guards, the listener channel
+//   src/extensions/    ← the registries plugins publish into (state/events/services/commands/slots)
+//   src/plugin/        ← plugin input validation + deterministic dependency ordering
+//   src/types/         ← the public type contracts, documented in place
+//   src/tests/         ← the conformance suite, driven through this file
+//
+// The entry and the lifecycle owner are deliberately the same module: the bundle
+// is built from this path (vite.config.ts lib.entry ./src/dashboard.ts, tsc emits
+// dist/dashboard.d.ts = package.json "types"), so the published surface cannot be
+// widened by some intermediate barrel that nobody audits.
 //
 // This module owns the lifecycle contract; the registries it wires together
-// (./state.ts, ./bus.ts, ./registries.ts) are deliberately lifecycle-blind and
-// only know about ids. Everything that can fail after this point is either a
-// registry lookup or the plugin's own code.
+// (./extensions/state.ts, ./extensions/bus.ts, ./extensions/registries.ts) are
+// deliberately lifecycle-blind and only know about ids. Everything that can fail
+// after this point is either a registry lookup or the plugin's own code.
 //
 // Cross-references:
-//   - ./order.ts     — everything that is rejected before the first setup() call
-//   - ./errors.ts    — the code each guard below throws
-//   - ./index.ts     — public barrel (dashboard + DashboardError + types)
+//   - ./plugin/order.ts  — everything that is rejected before the first setup() call
+//   - ./core/errors.ts   — the code each guard below throws
+//   - ./types/index.ts   — every public type this file re-exports below
 
-import { describeValue, fail } from './errors';
-import { orderPlugins, readPlugins } from './order';
-import { StateRegistry } from './state';
-import { EventBus } from './bus';
-import { CommandRegistry, ServiceRegistry, SlotRegistry } from './registries';
-import type { CommandHandler } from './registries';
+import { describeValue, fail } from './core';
+import { orderPlugins, readPlugins } from './plugin';
+import {
+    CommandRegistry,
+    EventBus,
+    ServiceRegistry,
+    SlotRegistry,
+    StateRegistry,
+} from './extensions';
+import type { CommandHandler } from './extensions';
 import type {
     Dashboard,
     DashboardContribution,
     DashboardContributionInput,
     DashboardOptions,
+    DashboardPluginAPI,
+    DashboardState,
+} from './types';
+
+// ---- the published surface (formerly src/index.ts, folded into the entry) ----
+//
+// One runtime factory plus one error class and the types that describe them.
+// Nothing DOM/React/CSS/harness-specific is exported, and nothing internal
+// (ListenerSet, the registries, the scheduler) leaks out, so the headless
+// framework can be consumed by any host without an adapter becoming coupled to
+// an implementation detail.
+//
+// `DashboardErrorDetails` and `DashboardErrorCode` are type-only exports: the
+// first appears in DashboardError's public constructor signature, so a consumer
+// must be able to name it. Type-only exports erase at build time, which is why
+// the runtime surface stays exactly `dashboard` + `DashboardError` (pinned in
+// ./tests/dashboard.test.ts).
+//
+// `dashboard` itself is exported from its declaration further down (the factory
+// is the body of this module, not something it re-exports).
+export { DashboardError } from './core';
+
+export type { DashboardErrorCode, DashboardErrorDetails } from './core';
+export type {
+    Dashboard,
+    DashboardContribution,
+    DashboardContributionInput,
+    DashboardOptions,
+    DashboardPlugin,
     DashboardPluginAPI,
     DashboardState,
 } from './types';

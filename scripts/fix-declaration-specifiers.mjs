@@ -7,17 +7,19 @@
 // because the library program uses `moduleResolution: bundler`. The emitted
 // declarations therefore keep extensionless relative specifiers:
 //
-//     dist/index.d.ts:  export { dashboard } from './dashboard';
-//     dist/state.d.ts:  import type { DashboardState } from './types';
+//     dist/dashboard.d.ts:        export { DashboardError } from './core';
+//     dist/extensions/state.d.ts: import type { DashboardState } from '../types';
 //
 // The package is `"type": "module"`, so every emitted `.d.ts` is an ESM module. A
 // consumer compiling with `module: node16`/`NodeNext` (or `moduleResolution:
 // node16`/`NodeNext`) resolves those files under ESM rules and rejects each
 // extensionless relative specifier with TS2834 ("Relative import paths need
 // explicit file extensions in ECMAScript modules when '--module' is 'nodenext'").
-// With the current barrel that is four TS2834 errors from `dist/index.d.ts` alone
-// (./dashboard, ./errors x2, ./types), and the consumer never sees the rest of the
-// public surface. `skipLibCheck` does not hide them: they are resolution errors.
+// With the layered layout that is one TS2834 per extensionless specifier in the
+// whole emitted tree (the entry alone re-exports through `./core` and `./types`,
+// and every layer folder adds a `../` hop), and the consumer never sees the rest
+// of the public surface. `skipLibCheck` does not hide them: they are resolution
+// errors.
 //
 // THE FIX
 // Rewrite every relative declaration specifier to the JS name of the sibling

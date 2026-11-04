@@ -6,10 +6,10 @@
 // diagnostic only and is NOT part of the contract.
 //
 // Cross-references:
-//   - ./order.ts      — 'invalid-options' / plugin-graph codes (build time, before setup)
-//   - ./registries.ts — 'invalid-*' / 'duplicate-*' / 'unknown-*' per-registry codes
-//   - ./listeners.ts  — 'listener-failed' (notification isolation)
-//   - ./dashboard.ts  — 'disposed' / 'registration-out-of-scope' / 'setup-failed' / 'cleanup-failed'
+//   - ../plugin/order.ts     — 'invalid-options' / plugin-graph codes (build time, before setup)
+//   - ../extensions/registries.ts — 'invalid-*' / 'duplicate-*' / 'unknown-*' per-registry codes
+//   - ./listeners.ts         — 'listener-failed' (notification isolation)
+//   - ../dashboard.ts        — 'disposed' / 'registration-out-of-scope' / 'setup-failed' / 'cleanup-failed'
 
 export type DashboardErrorCode =
     // ---- input shape (dashboard(options)) ----

@@ -6,13 +6,13 @@
 // returning undefined.
 //
 // Cross-references:
-//   - ./state.ts     — the fourth registry (state cells), same discipline
-//   - ./dashboard.ts — lifecycle guards wrapped around every call below
-//   - ./validate.ts  — 'invalid-identifier' / 'invalid-handler' shared checks
+//   - ./state.ts       — the fourth registry (state cells), same discipline
+//   - ../dashboard.ts  — lifecycle guards wrapped around every call below
+//   - ../core/validate.ts — 'invalid-identifier' / 'invalid-handler' shared checks
 
-import { describeValue, fail } from './errors';
-import { ownerLabel, requireIdentifier } from './validate';
-import type { DashboardContribution, DashboardContributionInput } from './types';
+import { describeValue, fail } from '../core/errors';
+import { ownerLabel, requireIdentifier } from '../core/validate';
+import type { DashboardContribution, DashboardContributionInput } from '../types';
 
 export type ServiceOwner = { owner: string; value: unknown };
 

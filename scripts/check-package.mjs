@@ -5,10 +5,14 @@
 // The source suite (vitest, `moduleResolution: bundler`) cannot see two defect
 // classes, and both were found in the shipped tree:
 //   F1  NodeNext consumers could not read the declarations at all. tsc preserves
-//       the extensionless source specifiers, so `dist/index.d.ts` shipped
-//       `export { dashboard } from './dashboard'`; every consumer compiling with
-//       `module`/`moduleResolution: NodeNext` hit four TS2834 resolution errors and
-//       lost the public surface. ./fix-declaration-specifiers.mjs rewrites them.
+//       the extensionless source specifiers, so the entry declaration shipped
+//       `export { DashboardError } from './core'` — today that file is
+//       `dist/dashboard.d.ts` (the entry is `src/dashboard.ts`); when the entry was
+//       the flat `dist/index.d.ts` the same defect read
+//       `export { dashboard } from './dashboard'`. Every consumer compiling with
+//       `module`/`moduleResolution: NodeNext` hit one TS2834 resolution error per
+//       extensionless specifier and lost the public surface, in every emitted file,
+//       not just the entry. ./fix-declaration-specifiers.mjs rewrites them.
 //       This script asserts the built tree is in that fixed state AND compiles a
 //       real NodeNext consumer that imports the package BY NAME from a scratch
 //       `node_modules` holding the packed shape (a tsconfig `paths` alias, like the
@@ -16,8 +20,9 @@
 //   F2  package boundaries were only carried by intent. The real
 //       `npm pack --dry-run --json` report is parsed here: every tarball entry must
 //       be library output (dist/**) or an npm default include (manifest, readme,
-//       licence, docs) — never `example/`, `src/`, `scripts/`, a test file, a
-//       fixture, or `.github/workflows`. That same packed entry list is copied into
+//       licence, docs) — never `example/`, `src/`, `scripts/`, a test file, a test
+//       layer directory anywhere in the published tree (`dist/tests/**`), a fixture,
+//       or `.github/workflows`. That same packed entry list is copied into
 //       the scratch install, so the type-check runs against exactly what a consumer
 //       downloads.
 //
@@ -59,9 +64,13 @@ const PACKAGE_NAME = '@underload/dashboard';
 const MANIFEST_PATH = path.join(PACKAGE_ROOT, 'package.json');
 const DIST_DIR = path.join(PACKAGE_ROOT, 'dist');
 
-// The only two paths the manifest is allowed to publish (bundle + barrel).
+// The only two paths the manifest is allowed to publish: the bundled ESM runtime and
+// the declaration twin of the published entry. The entry is `src/dashboard.ts` (the
+// only file at src/ root), and tsconfig.build.json maps rootDir `src` -> outDir
+// `dist`, so its declaration is `dist/dashboard.d.ts` — the tree below it mirrors the
+// src layers (`dist/core/`, `dist/extensions/`, `dist/plugin/`, `dist/types/`).
 const RUNTIME_TARGET = './dist/underload-dashboard.mjs';
-const TYPES_TARGET = './dist/index.d.ts';
+const TYPES_TARGET = './dist/dashboard.d.ts';
 
 /** Hard stop with a one-line cause: a packaging gate must fail, never half-pass. */
 const fail = (message) => {
@@ -197,6 +206,13 @@ if (JSON.stringify(manifest.files) !== JSON.stringify(['dist']))
     fail(`"files" must stay exactly ["dist"], got ${JSON.stringify(manifest.files)}`);
 if (manifest.dependencies !== undefined) fail('the core must stay dependency-free: no runtime "dependencies"');
 
+// Legacy resolution fields: `main`/`module`/`types` are what a consumer compiling
+// with `moduleResolution: node10` reads, and the exports map does not cover them, so
+// an entry rename has to land in BOTH places. Pinned to the exact published paths.
+if (manifest.main !== RUNTIME_TARGET) fail(`"main" must stay ${RUNTIME_TARGET}, got ${JSON.stringify(manifest.main)}`);
+if (manifest.module !== RUNTIME_TARGET) fail(`"module" must stay ${RUNTIME_TARGET}, got ${JSON.stringify(manifest.module)}`);
+if (manifest.types !== TYPES_TARGET) fail(`"types" must stay ${TYPES_TARGET}, got ${JSON.stringify(manifest.types)}`);
+
 const exportsMap = manifest.exports ?? {};
 const publicSubpaths = Object.keys(exportsMap).sort().join(',');
 if (publicSubpaths !== '.,./package.json')
@@ -223,6 +239,15 @@ if (distFiles.length === 0) fail('dist/ is empty — run `npm run build` first')
 if (distFiles.some((file) => isTestArtifact(file)))
     fail(`dist/ contains test artifacts: ${distFiles.filter(isTestArtifact).join(', ')}`);
 
+// The conformance suite now lives in a directory (`src/tests/`), not beside the entry,
+// so a name-only test check is no longer enough: `tests/index.d.ts` matches neither
+// TEST_FILE (the segment ends in `s`, not `.`/`-`) nor the tarball FORBIDDEN_PREFIXES
+// (every tarball path starts with `dist/`, so `tests/` is never a prefix). A `tests/`
+// or `test/` path segment anywhere in the emitted tree is the test layer escaping the
+// tsconfig.build.json exclude list and reaching a consumer install.
+const distTestLayer = distFiles.filter((file) => /(?:^|\/)tests?\//i.test(file));
+if (distTestLayer.length > 0) fail(`dist/ contains the test layer: ${distTestLayer.join(', ')}`);
+
 // A stray `.ts` would be unbuilt source; `.d.cts`/`.cts` would contradict ESM-only.
 const distUnexpected = distFiles.filter((file) => !/\.(?:mjs|d\.ts|map|json)$/i.test(file));
 if (distUnexpected.length > 0) fail(`dist/ contains unexpected file types: ${distUnexpected.join(', ')}`);
@@ -246,10 +271,19 @@ if (declarationState.rewritten.length > 0) {
     );
 }
 
-// The barrel is the only entry, so every declaration it (transitively) names must be
-// in dist/; a missing sibling would otherwise surface only inside a consumer build.
-// Worklist (not a snapshot) so newly discovered declarations are walked too.
-const closure = new Set([path.join(DIST_DIR, 'index.d.ts')]);
+// The entry declaration (`dist/dashboard.d.ts`, the manifest "types" target) is the
+// only entry, so every declaration it (transitively) names must exist in dist/; a
+// missing sibling would otherwise surface only inside a consumer build. Under the
+// layered layout those specifiers cross folder boundaries (`./core/index.js`,
+// `./types/index.js`, then the layer barrels' own `./errors.js` / `./validate.js` /
+// ...), which is why the walk is seeded with the entry FILE rather than a
+// same-directory glob. The closure that walks out of the entry today is
+// `dashboard.d.ts`, `core/index.d.ts` -> `core/errors.d.ts` + `core/validate.d.ts` +
+// `core/listeners.d.ts`, and `types/index.d.ts`; the `extensions/` and `plugin/`
+// declarations are emitted but not named by the public surface, and the all-files
+// `--check` above still proves they are NodeNext-clean. Worklist (not a snapshot) so
+// newly discovered declarations are walked too.
+const closure = new Set([path.join(DIST_DIR, 'dashboard.d.ts')]);
 for (const pending of closure) {
     const file = path.resolve(pending);
     if (!existsSync(file)) fail(`the public declaration closure references a missing file: ${toPosix(path.relative(PACKAGE_ROOT, file))}`);
@@ -316,8 +350,17 @@ if (forbidden.length > 0) fail(`tarball leaks a forbidden directory: ${forbidden
 const packedTests = packedPaths.filter(isTestArtifact);
 if (packedTests.length > 0) fail(`tarball leaks test files: ${packedTests.join(', ')}`);
 
+// Same rule as the dist check above: with the test layer in `src/tests/`, its
+// declarations would land at `dist/tests/**`, which is a *segment* match, never a
+// root-level FORBIDDEN_PREFIX match (every tarball dist entry starts with `dist/`).
+const packedTestLayer = packedPaths.filter((file) => /(?:^|\/)tests?\//i.test(file));
+if (packedTestLayer.length > 0) fail(`tarball carries the test layer: ${packedTestLayer.join(', ')}`);
+
 // The exports targets must survive packing, or the published package resolves to
-// nothing even though the source tree looks right.
+// nothing even though the source tree looks right. This is also the evidence behind
+// the deep-import probe below: `./dist/dashboard.d.ts` (the types target) is asserted
+// to ship here, so the ONLY thing that can block `@underload/dashboard/dist/dashboard`
+// in a consumer is the "exports" map — not a missing file.
 for (const { target } of targets) {
     if (!packedPaths.includes(toPosix(path.normalize(target)))) fail(`export target ${target} is not in the tarball`);
 }
@@ -366,9 +409,17 @@ import type {
 } from '${PACKAGE_NAME}';
 
 // The package publishes no code subpaths, so a deep import is not part of the
-// contract; it must stay unresolved in every resolution mode.
-// @ts-expect-error - './dist/dashboard' is blocked by the "exports" map.
+// contract; it must stay unresolved in every resolution mode. This is the sharp
+// version of that probe: after the entry rename, dist/dashboard.d.ts IS the types
+// target and really is installed (the tarball assertions above prove that file
+// ships), so the failure below can only come from the "exports" map, never from a
+// missing file. Both spellings are checked: the extensionless one a Bundler consumer
+// would try, the .js one a NodeNext consumer would try, so a future wildcard subpath
+// export cannot quietly reopen the internals.
+// @ts-expect-error - './dist/dashboard' is blocked by the "exports" map even though dist/dashboard.d.ts ships.
 import { dashboard as deepDashboard } from '${PACKAGE_NAME}/dist/dashboard';
+// @ts-expect-error - './dist/dashboard.js' is blocked by the "exports" map for the same reason.
+import { dashboard as deepDashboardJs } from '${PACKAGE_NAME}/dist/dashboard.js';
 
 type Panel = { readonly id: string; readonly label: string };
 type Line = { readonly role: 'user' | 'assistant'; readonly text: string };
@@ -452,6 +503,7 @@ const wrongStateType: number = instance.state<string>('composer.draft').get();
 const inventedCode: DashboardErrorCode = 'not-a-real-code';
 
 void deepDashboard;
+void deepDashboardJs;
 void pluginWithoutId;
 void wrongStateType;
 void inventedCode;
@@ -501,8 +553,10 @@ const consumers = [
 ];
 
 // Runtime probe: proves the packed ESM entry imports BY NAME under Node (i.e. the
-// exports map resolves) and that documented behaviour is intact — right types alone
-// are not enough. Exact values, so a behaviour change fails here too.
+// exports map resolves), that a non-exported subpath is rejected BY THE MAP
+// (ERR_PACKAGE_PATH_NOT_EXPORTED, not ERR_MODULE_NOT_FOUND), and that documented
+// behaviour is intact — right types alone are not enough. Exact values, so a
+// behaviour change fails here too.
 const runtimeDir = path.join(work, 'consumer-runtime');
 mkdirSync(runtimeDir, { recursive: true });
 writeFileSync(path.join(runtimeDir, 'package.json'), `${JSON.stringify({ name: 'consumer-runtime', private: true, type: 'module' }, null, 4)}\n`, 'utf8');
@@ -544,7 +598,19 @@ try {
 }
 assert.equal(code, 'disposed');
 
-console.log('runtime-ok ' + JSON.stringify({ plugins: [...instance.plugins], code }));
+// Runtime half of the boundary proof: the file the deep import names really is in the
+// install (dist/dashboard.d.ts is the published types target), so a failure here can
+// only come from the "exports" map. A missing file would surface as
+// ERR_MODULE_NOT_FOUND instead, which is why the code is asserted exactly.
+let deepImport = 'no-throw';
+try {
+    await import('${PACKAGE_NAME}/dist/dashboard.js');
+} catch (error) {
+    deepImport = error && typeof error === 'object' ? String(error.code ?? error.constructor.name) : String(error);
+}
+assert.equal(deepImport, 'ERR_PACKAGE_PATH_NOT_EXPORTED');
+
+console.log('runtime-ok ' + JSON.stringify({ plugins: [...instance.plugins], code, deepImport }));
 `,
     'utf8'
 );

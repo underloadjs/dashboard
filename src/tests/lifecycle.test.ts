@@ -1,7 +1,7 @@
 // Dashboard lifecycle: setup order, rollback, disposal, and the error contract
 // for every post-dispose and out-of-scope operation.
 //
-// Contract pinned here (see ./dashboard.ts):
+// Contract pinned here (see ../dashboard.ts):
 //   - each setup() runs exactly once, in dependency order, and instance.plugins
 //     reports that order
 //   - a setup() failure discards the build: already-started plugins are cleaned in
@@ -22,9 +22,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { DashboardError, dashboard } from './index';
-import type { Dashboard, DashboardPlugin, DashboardPluginAPI, DashboardState } from './types';
-import type { DashboardErrorCode } from './errors';
+import { DashboardError, dashboard } from '../dashboard';
+import type { Dashboard, DashboardPlugin, DashboardPluginAPI, DashboardState } from '../types';
+import type { DashboardErrorCode } from '../core/errors';
 
 function failureOf(operation: () => unknown): DashboardError {
     try {

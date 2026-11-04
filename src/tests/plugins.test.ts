@@ -7,16 +7,16 @@
 //   - the schedule is depth-first, dependency-first and declaration-stable, and
 //     instance.plugins reports the order setup() really ran in
 //
-// Error MESSAGES are diagnostic only (see ./errors.ts), so failures are pinned by
+// Error MESSAGES are diagnostic only (see ../core/errors.ts), so failures are pinned by
 // code, with the offending ids asserted as substrings.
 //
-// Cross-references: ./order.ts (scheduler), ./dashboard.ts (call site),
+// Cross-references: ../plugin/order.ts (scheduler), ../dashboard.ts (call site),
 // ./lifecycle.test.ts (setup/cleanup ordering once the graph is valid).
 
 import { describe, expect, it } from 'vitest';
 
-import { DashboardError, dashboard } from './index';
-import type { DashboardPlugin, DashboardPluginAPI } from './types';
+import { DashboardError, dashboard } from '../dashboard';
+import type { DashboardPlugin, DashboardPluginAPI } from '../types';
 
 // Extracts the DashboardError a call must throw, so an unexpected error type (or
 // no error at all) fails the test with a readable message instead of passing.

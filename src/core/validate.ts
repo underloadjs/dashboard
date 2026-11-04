@@ -5,8 +5,8 @@
 // keeps failures attributable to the plugin that caused them; silently accepting
 // `''` or `undefined` would create channels that no lookup can name.
 //
-// Cross-references: ./state.ts, ./bus.ts, ./registries.ts (callers),
-// ./errors.ts ('invalid-identifier' code).
+// Cross-references: ../extensions/state.ts, ../extensions/bus.ts,
+// ../extensions/registries.ts (callers), ./errors.ts ('invalid-identifier' code).
 
 import { describeValue, fail } from './errors';
 

@@ -638,9 +638,9 @@ service, then a command, then a slot contribution) without moving anything.
 
 ## 14. Conformance map
 
-| Guarantee | Test file (`src/**`) |
+| Guarantee | Test file (`src/tests/**`; every one drives the entry, `src/dashboard.ts`) |
 | --- | --- |
-| Single public entry shape (two runtime exports, type-only error exports nameable); empty dashboard | `index.test.ts` |
+| Single public entry shape (two runtime exports, type-only error exports nameable); empty dashboard | `dashboard.test.ts` |
 | Options input, plugin shape, duplicate/missing/cycle rejection **before any setup**, deterministic schedule | `plugins.test.ts` |
 | State identity, SameValueZero equality (incl. `NaN` and `±0`), subscription ordering and membership, nested-write depth-first interleaving, listener isolation, `useSyncExternalStore` shape | `state.test.ts` |
 | Event channels, payload by reference, nested-emit interleaving and no replay, isolation, plugin/host ownership across disposal, runtime subscription | `events.test.ts` |

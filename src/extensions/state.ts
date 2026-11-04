@@ -7,14 +7,14 @@
 // it after dispose" a loud error instead of a silently stale snapshot.
 //
 // Cross-references:
-//   - ./types.ts     — DashboardState contract (immutable updates, useSyncExternalStore shape)
-//   - ./listeners.ts — delivery guarantees shared with events
-//   - ./dashboard.ts — registration guard + detachAll() during teardown
+//   - ../types/index.ts   — DashboardState contract (immutable updates, useSyncExternalStore shape)
+//   - ../core/listeners.ts— delivery guarantees shared with events
+//   - ../dashboard.ts     — registration guard + detachAll() during teardown
 
-import { fail } from './errors';
-import { ListenerSet } from './listeners';
-import { ownerLabel, requireIdentifier } from './validate';
-import type { DashboardState } from './types';
+import { fail } from '../core/errors';
+import { ListenerSet } from '../core/listeners';
+import { ownerLabel, requireIdentifier } from '../core/validate';
+import type { DashboardState } from '../types';
 
 // SameValueZero equality (what Set/Map use) implemented without depending on the
 // es2015.core lib entry: `a === b` covers identical references and equal
@@ -54,7 +54,7 @@ export function createState<T>(id: string, initial: T): ManagedState<T> {
         set: (next: T | ((previous: T) => T)) => {
             guard('Writing');
 
-            // A function argument is an updater (see ./types.ts). The cast is the
+            // A function argument is an updater (see ../types/index.ts). The cast is the
             // documented ambiguity of `set` when T is itself a function type.
             const resolved: T = typeof next === 'function'
                 ? (next as (previous: T) => T)(value)

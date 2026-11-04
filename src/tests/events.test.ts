@@ -1,6 +1,6 @@
 // Event channel semantics (api.on / api.emit / dashboard.on / dashboard.emit).
 //
-// Contract pinned here (see ./bus.ts and ./listeners.ts):
+// Contract pinned here (see ../extensions/bus.ts and ../core/listeners.ts):
 //   - events are an open, undeclared set: emitting into a channel nobody
 //     listens to is a no-op, and unknown names never fail
 //   - delivery is synchronous, in subscription order, payload passed by
@@ -13,12 +13,12 @@
 //   - unsubscribe handles are idempotent and remain harmless after dispose()
 //
 // Cross-references: ./events.test.ts helpers mirror ./state.test.ts because both
-// share ./listeners.ts; ./lifecycle.test.ts pins the disposal ordering.
+// share ../core/listeners.ts; ./lifecycle.test.ts pins the disposal ordering.
 
 import { describe, expect, it } from 'vitest';
 
-import { DashboardError, dashboard } from './index';
-import type { DashboardPlugin, DashboardPluginAPI } from './types';
+import { DashboardError, dashboard } from '../dashboard';
+import type { DashboardPlugin, DashboardPluginAPI } from '../types';
 
 function failureOf(operation: () => unknown): DashboardError {
     try {
