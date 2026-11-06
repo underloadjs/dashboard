@@ -354,7 +354,8 @@ stay readable on npmjs.com.
 - **[example/README.md](https://github.com/underloadjs/dashboard/blob/main/example/README.md)** — a
   separately styled React host that consumes this API through
   `DashboardPlugin`s only (the shell holds no feature list: register a plugin, a panel appears). It is **never
-  published** — `files: ["dist"]` keeps the tarball to the library plus npm's default includes — and its
+  published** — `files: ["dist", "src", …test negations]` keeps the tarball to the built library,
+  the editable source its `development` condition resolves, and npm's default includes — and its
   transport is a **static simulation**: it reads fixtures in `example/src/data/fixtures.ts`, with no backend, no
   network and no `@underload/harness` import. `npm run example:dev`, `example:build`, `example:preview` and
   `test:example` drive it locally.

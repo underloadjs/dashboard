@@ -3,19 +3,27 @@
     "version": "1.0.2",
     "description": "Headless plugin-composed dashboard core for the underload service ecosystem",
     "type": "module",
-    "main": "./dist/underload-dashboard.mjs",
-    "module": "./dist/underload-dashboard.mjs",
-    "types": "./dist/dashboard.d.ts",
+    "main": "./src/dashboard.ts",
+    "module": "./src/dashboard.ts",
+    "types": "./src/dashboard.ts",
     "exports": {
         ".": {
             "types": "./dist/dashboard.d.ts",
+            "development": "./src/dashboard.ts",
             "import": "./dist/underload-dashboard.mjs",
             "default": "./dist/underload-dashboard.mjs"
         },
         "./package.json": "./package.json"
     },
     "files": [
-        "dist"
+        "dist",
+        "src",
+        "!src/**/*.test.ts",
+        "!src/**/*.test.tsx",
+        "!src/**/*.spec.ts",
+        "!src/**/*.spec.tsx",
+        "!src/**/__snapshots__/**",
+        "!src/**/node_modules/**"
     ],
     "sideEffects": false,
     "engines": {

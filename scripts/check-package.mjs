@@ -19,12 +19,27 @@
 //       one in example/tsconfig.json, would prove nothing).
 //   F2  package boundaries were only carried by intent. The real
 //       `npm pack --dry-run --json` report is parsed here: every tarball entry must
-//       be library output (dist/**) or an npm default include (manifest, readme,
-//       licence, docs) — never `example/`, `src/`, `scripts/`, a test file, a test
-//       layer directory anywhere in the published tree (`dist/tests/**`), a fixture,
-//       or `.github/workflows`. That same packed entry list is copied into
-//       the scratch install, so the type-check runs against exactly what a consumer
-//       downloads.
+//       be library output (dist/**), library SOURCE (src/**, the tree the
+//       `development` condition below publishes), or an npm default include
+//       (manifest, readme, licence, docs) — never `example/`, `scripts/`, a test
+//       file, a test layer directory anywhere in the published tree (`dist/tests/**`
+//       or `src/tests/**`), a fixture, or `.github/workflows`. That same packed entry
+//       list is copied into the scratch install, so the type-check runs against
+//       exactly what a consumer downloads.
+//   F3  source-first resolution must survive PACKING. `exports["."].development`
+//       (the condition Vite/Vitest/vite-node select in dev + test mode) points at the
+//       raw `./src/dashboard.ts` entry — `dist/` is the npm distribution bundle only,
+//       and per-module `.ts` is what a bundler tree shakes. A `development` target
+//       that is not in the tarball resolves to nothing after install, so `src/` must
+//       be published (minus its test layer) and every export target — source
+//       included — must appear in the packed entry list (§3 reuses the same check).
+//       `types` conditions stay on the emitted `./dist/dashboard.d.ts`, because a
+//       NodeNext consumer cannot read `src/*.ts` (its relative specifiers are
+//       extensionless, i.e. exactly defect F1). The two consumer fixtures below
+//       therefore still compile against the DECLARATIONS: TS always applies the
+//       `types` condition, and it precedes `development` in the map.
+//       (Same contract the sibling harness enforces in
+//       packages/underload/harness/scripts/check-package-types.mjs §1d/1e.)
 //
 // USAGE
 //     node scripts/check-package.mjs             # requires `npm run build` first
@@ -64,13 +79,19 @@ const PACKAGE_NAME = '@underload/dashboard';
 const MANIFEST_PATH = path.join(PACKAGE_ROOT, 'package.json');
 const DIST_DIR = path.join(PACKAGE_ROOT, 'dist');
 
-// The only two paths the manifest is allowed to publish: the bundled ESM runtime and
-// the declaration twin of the published entry. The entry is `src/dashboard.ts` (the
-// only file at src/ root), and tsconfig.build.json maps rootDir `src` -> outDir
-// `dist`, so its declaration is `dist/dashboard.d.ts` — the tree below it mirrors the
-// src layers (`dist/core/`, `dist/extensions/`, `dist/plugin/`, `dist/types/`).
+// The only three paths the manifest is allowed to publish: the raw entry, the bundled
+// ESM runtime, and the declaration twin of the published entry. The entry is
+// `src/dashboard.ts` (the only file at src/ root), and tsconfig.build.json maps rootDir
+// `src` -> outDir `dist`, so its declaration is `dist/dashboard.d.ts` — the tree below
+// it mirrors the src layers (`dist/core/`, `dist/extensions/`, `dist/plugin/`,
+// `dist/types/`).
 const RUNTIME_TARGET = './dist/underload-dashboard.mjs';
 const TYPES_TARGET = './dist/dashboard.d.ts';
+// SOURCE_TARGET is what the `development` condition (Vite/Vitest/vite-node dev + test
+// mode) resolves, and what `main`/`module`/`types` advertise to a `node10` consumer:
+// raw TypeScript, so a workspace run never evaluates a stale bundle and a bundler can
+// tree shake per module. `dist/` stays the npm distribution artifact.
+const SOURCE_TARGET = './src/dashboard.ts';
 
 /** Hard stop with a one-line cause: a packaging gate must fail, never half-pass. */
 const fail = (message) => {
@@ -198,20 +219,40 @@ const scratchArg = scratchIndex >= 0 ? process.argv[scratchIndex + 1] : undefine
 const scratchRoot = path.resolve(scratchArg !== undefined && !scratchArg.startsWith('--') ? scratchArg : defaultScratchRoot);
 
 // ---------------------------------------------------------------------------
-// 1. Manifest contract: ESM-only, one public entry, dist-only publish, no deps.
+// 1. Manifest contract: ESM-only, one public entry, source + bundle publish, no deps.
 // ---------------------------------------------------------------------------
 if (manifest.name !== PACKAGE_NAME) fail(`unexpected package name '${manifest.name}'`);
 if (manifest.type !== 'module') fail('package.json must stay "type": "module" (every declaration is ESM)');
-if (JSON.stringify(manifest.files) !== JSON.stringify(['dist']))
-    fail(`"files" must stay exactly ["dist"], got ${JSON.stringify(manifest.files)}`);
+
+// `files` is pinned exactly, because both halves carry a defect:
+//   - dropping `src` makes the `development` export target a 404 after install;
+//   - dropping any `!src/**` negation ships the conformance suite (and any
+//     snapshot/nested-install noise) to every consumer.
+const EXPECTED_FILES = [
+    'dist',
+    'src',
+    '!src/**/*.test.ts',
+    '!src/**/*.test.tsx',
+    '!src/**/*.spec.ts',
+    '!src/**/*.spec.tsx',
+    '!src/**/__snapshots__/**',
+    '!src/**/node_modules/**',
+];
+if (JSON.stringify(manifest.files) !== JSON.stringify(EXPECTED_FILES))
+    fail(`"files" must stay exactly ${JSON.stringify(EXPECTED_FILES)}, got ${JSON.stringify(manifest.files)}`);
 if (manifest.dependencies !== undefined) fail('the core must stay dependency-free: no runtime "dependencies"');
 
 // Legacy resolution fields: `main`/`module`/`types` are what a consumer compiling
-// with `moduleResolution: node10` reads, and the exports map does not cover them, so
-// an entry rename has to land in BOTH places. Pinned to the exact published paths.
-if (manifest.main !== RUNTIME_TARGET) fail(`"main" must stay ${RUNTIME_TARGET}, got ${JSON.stringify(manifest.main)}`);
-if (manifest.module !== RUNTIME_TARGET) fail(`"module" must stay ${RUNTIME_TARGET}, got ${JSON.stringify(manifest.module)}`);
-if (manifest.types !== TYPES_TARGET) fail(`"types" must stay ${TYPES_TARGET}, got ${JSON.stringify(manifest.types)}`);
+// with `moduleResolution: node10` (and what a bundler that ignores "exports") reads,
+// and the exports map does not cover them, so an entry rename has to land in BOTH
+// places. They point at the SOURCE entry, exactly like every other workspace library
+// (packages/presource/core, packages/godspace/core, packages/userfiction/core): a
+// `node10`/bundler consumer gets raw `.ts` (type-checkable, per-module tree shakeable),
+// while modern Node and NodeNext consumers are served by the "exports" map below, whose
+// runtime conditions stay on the built bundle.
+if (manifest.main !== SOURCE_TARGET) fail(`"main" must stay ${SOURCE_TARGET}, got ${JSON.stringify(manifest.main)}`);
+if (manifest.module !== SOURCE_TARGET) fail(`"module" must stay ${SOURCE_TARGET}, got ${JSON.stringify(manifest.module)}`);
+if (manifest.types !== SOURCE_TARGET) fail(`"types" must stay ${SOURCE_TARGET}, got ${JSON.stringify(manifest.types)}`);
 
 const exportsMap = manifest.exports ?? {};
 const publicSubpaths = Object.keys(exportsMap).sort().join(',');
@@ -220,14 +261,34 @@ if (publicSubpaths !== '.,./package.json')
 
 // `./package.json` is a manifest re-export, not code: exempt from the target rule.
 const targets = exportTargets(exportsMap).filter(({ target }) => !target.endsWith('package.json'));
-if (targets.length === 0) fail('the root entry must publish both a runtime and a types target');
+if (targets.length === 0) fail('the root entry must publish a source, a types, and a runtime target');
+
+// One allowed target per condition family:
+//   `.types`             -> the emitted declaration (a NodeNext consumer cannot read
+//                           `src/*.ts`, whose relative specifiers are extensionless);
+//   `.development`       -> the raw source entry (the condition Vite/Vitest/vite-node
+//                           select in dev + test mode — F3, and the whole reason `src`
+//                           is in `files`);
+//   `.import`/`.default` -> the bundled ESM runtime (npm distribution only).
+const targetOfCondition = (condition) =>
+    condition.endsWith('types') ? TYPES_TARGET : condition.endsWith('development') ? SOURCE_TARGET : RUNTIME_TARGET;
 
 for (const { condition, target } of targets) {
-    const expected = condition.endsWith('types') ? TYPES_TARGET : RUNTIME_TARGET;
+    const expected = targetOfCondition(condition);
     if (target !== expected) fail(`"${condition}" must point at ${expected}, got ${target}`);
     // A dangling exports target is MODULE_NOT_FOUND for the consumer at runtime.
     if (!existsSync(path.join(PACKAGE_ROOT, target))) fail(`export target does not exist on disk: ${target}`);
 }
+
+// The condition set is pinned exactly: a condition the rule above has no branch for
+// would otherwise pass silently on the runtime fallback (e.g. a `browser` or `node`
+// condition added without deciding which artifact a browser host gets). The walk
+// prefixes each key with its subpath (`.` -> `...types`), so only the bare condition
+// names are compared.
+const conditions = targets.map(({ condition }) => condition.replace(/^\.+/, '')).sort();
+const EXPECTED_CONDITIONS = ['default', 'development', 'import', 'types'];
+if (JSON.stringify(conditions) !== JSON.stringify(EXPECTED_CONDITIONS))
+    fail(`the root entry must declare exactly [${EXPECTED_CONDITIONS.join(', ')}], got [${conditions.join(', ')}]`);
 
 // ---------------------------------------------------------------------------
 // 2. Built tree: present, test-free, and already post-processed.
@@ -335,9 +396,12 @@ const DEFAULT_INCLUDES = new Set([
     'notice.txt',
     'security.md',
 ]);
-const ALLOWED_PREFIXES = ['dist/', 'docs/'];
-// Directories that exist in the repo but must never reach a consumer install.
-const FORBIDDEN_PREFIXES = ['example/', 'src/', 'scripts/', 'tests/', 'test/', 'fixtures/', 'coverage/', 'lib/', 'temp/', '.github/'];
+const ALLOWED_PREFIXES = ['dist/', 'src/', 'docs/'];
+// Directories that exist in the repo but must never reach a consumer install. `src/`
+// is NOT in this list any more: it is the tree the `development` condition publishes
+// (F3), so a dev-mode consumer of the installed package resolves real source. Its
+// test layer is still excluded, by the name and segment checks below.
+const FORBIDDEN_PREFIXES = ['example/', 'scripts/', 'tests/', 'test/', 'fixtures/', 'coverage/', 'lib/', 'temp/', '.github/'];
 
 const unexpected = packedPaths.filter(
     (file) => !ALLOWED_PREFIXES.some((prefix) => file.startsWith(prefix)) && !DEFAULT_INCLUDES.has(file.toLowerCase())
@@ -355,6 +419,16 @@ if (packedTests.length > 0) fail(`tarball leaks test files: ${packedTests.join('
 // root-level FORBIDDEN_PREFIX match (every tarball dist entry starts with `dist/`).
 const packedTestLayer = packedPaths.filter((file) => /(?:^|\/)tests?\//i.test(file));
 if (packedTestLayer.length > 0) fail(`tarball carries the test layer: ${packedTestLayer.join(', ')}`);
+
+// The published source tree must be exactly editable TypeScript. Empty means the
+// `development` condition resolves to nothing after install; a non-`.ts` entry under
+// `src/` (a stylesheet, a nested build output, a compiled twin) is an artifact a
+// consumer cannot import through that condition.
+const packedSource = packedPaths.filter((file) => file.startsWith('src/'));
+if (packedSource.length === 0)
+    fail('the tarball carries no src/ source, so the "development" target resolves to nothing after install');
+const unexpectedSource = packedSource.filter((file) => !file.endsWith('.ts'));
+if (unexpectedSource.length > 0) fail(`src/ carries non-TypeScript entries: ${unexpectedSource.join(', ')}`);
 
 // The exports targets must survive packing, or the published package resolves to
 // nothing even though the source tree looks right. This is also the evidence behind
@@ -642,9 +716,13 @@ if (runtime.status !== 0) {
 
 if (failed) process.exit(1);
 
-const nonDist = packedPaths.filter((file) => !file.startsWith('dist/'));
+// One-line boundary summary: declarations, closure, and the tarball split into the
+// bundle, the published source, and every remaining entry named explicitly (npm's
+// default includes are the only thing that may appear there).
+const nonDist = packedPaths.filter((file) => !file.startsWith('dist/') && !file.startsWith('src/'));
 console.log(
     `package check: ${declarationState.scanned} declaration file(s) NodeNext-clean, ${closure.size} declaration(s) in the ` +
-        `public closure, ${packedPaths.length} tarball entry(ies) (${nonDist.length ? `non-dist: ${nonDist.join(', ')}` : 'dist only'}) ` +
+        `public closure, ${packedPaths.length} tarball entry(ies) (${packedSource.length} src/ source file(s), ` +
+        `${nonDist.length ? `non-dist/non-src: ${nonDist.join(', ')}` : 'no other entry'}) ` +
         `for ${PACKAGE_NAME}@${manifest.version}; scratch ${keep ? `kept at ${work}` : 'removed'}`
 );

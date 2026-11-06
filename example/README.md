@@ -1,8 +1,10 @@
 # Underload Workstation — example
 
 A separately styled, harness-**inspired** demo of `@underload/dashboard`. It is
-not a shipped part of the package: `package.json` publishes `files: ["dist"]`, the
-entry maps to `dist/`, and this directory is only ever built as a static site.
+not a shipped part of the package: `package.json` publishes
+`files: ["dist", "src", …test negations]` — the built bundle plus the editable source
+that `exports["."].development` resolves for a dev/test host — while the published
+runtime entry maps to `dist/`, and this directory is only ever built as a static site.
 
 The point of the example is to prove the framework is versatile rather than to
 reproduce the harness: **every** visible capability (layout, theme, transport,
