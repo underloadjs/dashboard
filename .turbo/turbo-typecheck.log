@@ -1,3 +1,0 @@
-yarn run v1.22.22
-$ tsc --noEmit && tsc --noEmit -p example/tsconfig.json
-Done in 5.87s.
