@@ -7,8 +7,8 @@
     // every **/*.test.tsx in it. The example is a browser app, so it gets app
     // settings (DOM libs, JSX) plus the '@underload/dashboard' path alias that
     // mirrors the Vite alias in ./vite-shared.ts — without `paths`, tsc would
-    // resolve the import through node_modules to the published dist/*.d.ts
-    // instead of the source the app actually bundles.
+    // resolve the import through node_modules to an installed copy of `src/*.ts`
+    // instead of the sibling source the app actually bundles.
     "compilerOptions": {
         "module": "ESNext",
         "target": "ES2022",

@@ -1,9 +1,10 @@
 // Vite config for the example workstation app (`npm run example:dev` /
 // `npm run example:build` / `npm run example:preview`).
 //
-// The example is NOT part of the published package: package.json ships
-// `files: ["dist"]` and the library entry maps to dist/, so nothing under
-// example/ can leak into the npm tarball.
+// The example is NOT part of the published package: package.json publishes
+// `files: ["src", …test negations]` (library source only) and no export condition
+// names anything outside `src/`, so nothing under example/ can leak into the npm
+// tarball.
 //
 // It consumes the framework exactly the way an external consumer does
 // (`import { dashboard } from '@underload/dashboard'`), resolved from library
@@ -36,8 +37,8 @@ export default defineConfig({
     },
     build: {
         // Relative to `root` (example/) -> example/dist, the Pages artifact.
-        // Disjoint from the library output (dist/), so neither build clobbers
-        // the other.
+        // The library publishes source and emits no build output, so this is
+        // the only build directory the package produces.
         outDir: 'dist',
         emptyOutDir: true,
         sourcemap: true

@@ -1,50 +1,53 @@
-// Source-first resolution contract for @underload/dashboard (the npm-distribution
-// bundle is `dist/`, the workspace/dev/test entry is `src/`).
+// Source-only resolution contract for @underload/dashboard (the package publishes
+// TypeScript SOURCE; there is no build output for a consumer to resolve).
 //
 // What this file pins (all deterministic, every value read from the real files):
 //   1. `main` / `module` / `types` stay on the SOURCE entry `./src/dashboard.ts`
-//      (the `node10`/bundler view, same convention as packages/underload/harness and
-//      packages/presource/*);
-//   2. the whole `exports` map, exactly: `types` on the emitted declaration,
-//      `development` on the raw source entry BEFORE the runtime conditions, and the
-//      runtime conditions on the built bundle;
-//   3. `files` stays the exact 8-entry list that publishes `src/` (minus its test
-//      layer) so the `development` target is not a 404 after install;
-//   4. each condition FAMILY resolves to exactly one artifact (types -> declaration,
-//      development -> source, everything else -> bundle), the development target
-//      really exists on disk, and the map has exactly 4 code targets;
+//      (the legacy/`exports`-ignoring view, same convention as
+//      packages/underload/harness and packages/presource/*);
+//   2. the whole `exports` map, exactly: ONE public entry whose every condition
+//      (`types` AND `default`) names the raw source entry, plus the
+//      `./package.json` re-export — no `development` special case, no `import`
+//      condition pointing at a bundle, and no `dist` target anywhere;
+//   3. `files` stays the exact 7-entry list that publishes `src/` (minus its test
+//      layer) and publishes NO build directory, so the export targets are not a 404
+//      after install and no stale `dist/` can ride along;
+//   4. every condition resolves to that ONE source file (the map has exactly 2 code
+//      targets), the target really exists on disk, and no target names a build
+//      artifact (`.mjs`/`.cjs`/`.d.ts`/`dist/`);
 //   5. Vite's OWN resolver maps `@underload/dashboard` to `src/dashboard.ts` in dev
 //      mode for BOTH `{ ssr: true }` (the SSR/test chain) and `{ ssr: false }` (the
 //      client chain) and never to `dist/` — i.e. the manifest conditions, not a
 //      hand-written alias, are what make a workspace run build-free;
 //   6. drift guard for the in-repo consumer: `example/vite-shared.ts` aliases the
-//      specifier at the SAME file as the manifest `development` target;
+//      specifier at the SAME file as the manifest `default` target;
 //   7. drift guard for the type side: `example/tsconfig.json` `paths` mirrors that
-//      same file (TS always prefers the published `types` condition, which stays on
-//      `dist/dashboard.d.ts`, so the alias is still required).
+//      same file (kept because `paths` is what makes the example's own program land
+//      on source instead of on an installed copy).
 //
 // Why these assertions exist at all: the library suite runs with `moduleResolution:
 // bundler` and never resolves the package BY NAME, so it cannot see the manifest
 // regressions that break real consumers. The packaging gate
-// (../../scripts/check-package.mjs §1) enforces the same contract for a PUBLISHED
+// (../../scripts/check-package.ts §1) enforces the same contract for a PUBLISHED
 // consumer; this file is the fast, build-free mirror of it, so a manifest edit fails
-// `npm test` without needing `npm run build` first.
+// `npm test` without any build step.
 //
 // Cross-references:
 //   - ../../package.json                    — manifest fields asserted below
-//   - ../../scripts/check-package.mjs       — SOURCE_TARGET/TYPES_TARGET/RUNTIME_TARGET,
-//                                             EXPECTED_FILES, EXPECTED_CONDITIONS and the
+//   - ../../scripts/check-package.ts        — SOURCE_TARGET, EXPECTED_FILES,
+//                                             EXPECTED_CONDITIONS and the
 //                                             `exportTargets` walk mirrored here
-//   - ../dashboard.ts                       — the source entry every `development`
-//                                             assertion names
-//   - ../../vite.config.ts                  — emits the dist bundle + declarations
+//   - ../dashboard.ts                       — the source entry every condition names
+//   - ../../vitest.config.ts                — jsdom environment + 15s testTimeout this
+//                                             file's Vite probe relies on; its `include`
+//                                             covers src/** and scripts/**
 //   - ../../example/vite-shared.ts          — the consumer alias (item 6)
 //   - ../../example/tsconfig.json           — the consumer `paths` mirror (item 7)
-//   - ../../vitest.config.ts                — jsdom environment + 15s testTimeout this
-//                                             file's Vite probe relies on
-//   - packages/underload/harness/src/structure.test.ts — same contract in the sibling
-//                                             package; source of the `stripJsonComments`
-//                                             and Vite-resolver probe precedents
+//   - packages/underload/harness/package.json + src/structure.test.ts — the same
+//                                             source-only contract in the sibling
+//                                             package; source of the
+//                                             `stripJsonComments` and Vite-resolver
+//                                             probe precedents
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -75,7 +78,7 @@ const readText = (absolutePath: string): string => fs.readFileSync(absolutePath,
 // blocks, but never inside a string literal.
 //
 // Why not the plain regex pair: example/tsconfig.json comments legitimately contain
-// `dist/*.d.ts` and `**/*.test.tsx`, and `/\/\*[\s\S]*?\*\//` reads the `/*` inside
+// `src/*.ts` and `**/*.test.tsx`, and `/\/\*[\s\S]*?\*\//` reads the `/*` inside
 // those as a block-comment opener — swallowing text up to a later `*/`, i.e. exactly
 // the `paths` value this file asserts on. String-aware walk is the harness precedent
 // (packages/underload/harness/src/structure.test.ts:66-108), which exists for the
@@ -124,11 +127,11 @@ const stripJsonComments = (text: string): string => {
     return out;
 };
 
-// One flattened row per string target of the exports map, mirroring `exportTargets`
-// in ../../scripts/check-package.mjs:128-132 EXACTLY, including the dot-prefixed
-// condition path (root subpath `.` + key `types` => `..types`). Family classification
-// therefore compares bare condition NAMES after stripping the leading dots, the same
-// way the gate does at check-package.mjs:288.
+// One flattened row per string target of the exports map, mirroring the
+// `exportTargets` walk in ../../scripts/check-package.ts EXACTLY, including the
+// dot-prefixed condition path (root subpath `.` + key `types` => `..types`). Condition
+// classification therefore compares bare condition NAMES after stripping the leading
+// dots, the same way the gate does.
 type ExportTarget = { subpath: string; condition: string; target: string };
 
 const flattenExportTargets = (exportsMap: unknown): ExportTarget[] => {
@@ -163,34 +166,38 @@ type PackageManifest = {
 const manifest = JSON.parse(readText(path.join(PACKAGE_ROOT, 'package.json'))) as PackageManifest;
 
 // `./package.json` is a manifest re-export, not code: excluded from every target
-// family below (same filter as check-package.mjs:263).
+// family below (same filter as the gate's `targets` walk).
 const exportTargets: ExportTarget[] = flattenExportTargets(manifest.exports);
 const codeTargets: ExportTarget[] = exportTargets.filter(({ target }) => !target.endsWith('package.json'));
 
 const bareCondition = (condition: string): string => condition.replace(/^\.+/u, '');
 const isTypesCondition = (condition: string): boolean => bareCondition(condition) === 'types';
-const isDevelopmentCondition = (condition: string): boolean => bareCondition(condition) === 'development';
+const isDefaultCondition = (condition: string): boolean => bareCondition(condition) === 'default';
 
 const typesTargets: string[] = codeTargets.filter(({ condition }) => isTypesCondition(condition)).map(({ target }) => target);
-const developmentTargets: string[] = codeTargets
-    .filter(({ condition }) => isDevelopmentCondition(condition))
+const defaultTargets: string[] = codeTargets
+    .filter(({ condition }) => isDefaultCondition(condition))
     .map(({ target }) => target);
-const runtimeTargets: string[] = codeTargets
-    .filter(({ condition }) => !isTypesCondition(condition) && !isDevelopmentCondition(condition))
+// Anything that is neither: with a source-only map there is nothing else, so this list
+// is expected to be empty (an added `import`/`browser`/`development` condition lands
+// here and fails the exactness assertions below).
+const otherTargets: string[] = codeTargets
+    .filter(({ condition }) => !isTypesCondition(condition) && !isDefaultCondition(condition))
     .map(({ target }) => target);
 
 // The single file every consumer-side mirror (alias, tsconfig `paths`, Vite resolver)
-// must land on. Derived from the manifest `development` target, not hardcoded, so item
-// 6 and item 7 are drift guards against the manifest rather than against a literal.
-const SOURCE_TARGET = developmentTargets.length === 1 ? developmentTargets[0] : '';
+// must land on. Derived from the manifest `default` (runtime) target, not hardcoded, so
+// item 6 and item 7 are drift guards against the manifest rather than against a literal.
+const SOURCE_TARGET = defaultTargets.length === 1 ? defaultTargets[0] : '';
 const SOURCE_ABSOLUTE = path.resolve(PACKAGE_ROOT, SOURCE_TARGET);
 
 // Scratch root policy (root AGENTS.md): throwaway work goes in a repository-root
 // `Temp/`, never the OS temp. Detection is the nearest ancestor carrying BOTH
 // `AGENTS.md` and `Temp/` — inside the noobscript workspace that is the workspace
 // root, not this package; a standalone `underloadjs/dashboard` checkout falls back to
-// the package's own ignored `Temp/`. Pattern copied from check-package.mjs:193-209
-// (this package must stay self-contained, so it is expressed locally, not imported).
+// the package's own ignored `Temp/`. Pattern copied from the gate's
+// `findWorkspaceRoot` (../../scripts/check-package.ts), which this package mirrors
+// locally because it must stay self-contained, not import a monorepo helper.
 const findWorkspaceRoot = (start: string): string | undefined => {
     let current = path.resolve(start);
 
@@ -220,31 +227,28 @@ describe('@underload/dashboard source-first resolution', () => {
         expect(manifest.types).toBe('./src/dashboard.ts');
     });
 
-    it('publishes source for development, declarations for types, bundle for runtime', () => {
+    it('publishes source for every condition, and no build artifact for any', () => {
         // The whole map, exact: one public code entry plus the `./package.json`
-        // re-export, and `development` placed after `types` but BEFORE the runtime
-        // conditions (order matters — conditions are matched in declaration order).
-        // A `types` condition that moved onto `./src/dashboard.ts` would break every
-        // NodeNext consumer, because the source's relative specifiers are
-        // extensionless (defect F1 in check-package.mjs).
+        // re-export, and BOTH conditions naming the raw source entry (conditions are
+        // matched in declaration order, and with `types` first a TS host is steered to
+        // the same file a bundler executes). A condition that moved back onto
+        // `./dist/…` would resolve to nothing, because this package has no build step.
         expect(manifest.exports).toEqual({
             '.': {
-                types: './dist/dashboard.d.ts',
-                development: './src/dashboard.ts',
-                import: './dist/underload-dashboard.mjs',
-                default: './dist/underload-dashboard.mjs',
+                types: './src/dashboard.ts',
+                default: './src/dashboard.ts',
             },
             './package.json': './package.json',
         });
     });
 
-    it('ships src/ in files so the development target survives install', () => {
-        // Both halves of this list are defects when broken: dropping `src` turns the
-        // `development` target into a 404 after install; dropping any `!src/**`
-        // negation ships the test layer (this very file) to every consumer. Exact
-        // multiset and order — check-package.mjs:231-242 pins the same array.
+    it('ships src/ only in files, so the export targets survive install without a build', () => {
+        // Both halves of this list are defects when broken: dropping `src` turns every
+        // export target into a 404 after install; adding a build directory (`dist`)
+        // publishes an artifact this package no longer produces; and dropping any
+        // `!src/**` negation ships the test layer (this very file) to every consumer.
+        // Exact multiset and order — the gate's EXPECTED_FILES pins the same array.
         expect(manifest.files).toEqual([
-            'dist',
             'src',
             '!src/**/*.test.ts',
             '!src/**/*.test.tsx',
@@ -255,37 +259,37 @@ describe('@underload/dashboard source-first resolution', () => {
         ]);
     });
 
-    it('routes each condition family to exactly one artifact', () => {
-        // Family-level proof, independent of the map shape above: `types` -> the
-        // emitted declaration, `development` -> the raw source entry, everything else
-        // -> the bundled ESM runtime. Two runtime entries (`import` + `default`) are
-        // expected, so the array has two identical strings; an added `browser`/`node`
-        // condition changes this list and forces an explicit decision about what a
-        // browser host gets.
-        expect(typesTargets).toEqual(['./dist/dashboard.d.ts']);
-        expect(developmentTargets).toEqual(['./src/dashboard.ts']);
-        expect(runtimeTargets).toEqual(['./dist/underload-dashboard.mjs', './dist/underload-dashboard.mjs']);
+    it('routes every condition to exactly one source file', () => {
+        // Condition-level proof, independent of the map shape above: `types` and
+        // `default` both name the raw source entry, and nothing else is published (a
+        // `development`/`import`/`browser` condition would land in `otherTargets` and
+        // force an explicit decision about which artifact a host gets).
+        expect(typesTargets).toEqual(['./src/dashboard.ts']);
+        expect(defaultTargets).toEqual(['./src/dashboard.ts']);
+        expect(otherTargets).toEqual([]);
 
-        // Exactly 4 code targets, i.e. the four conditions above and no extras
-        // (mirrors EXPECTED_CONDITIONS, check-package.mjs:289).
-        expect(codeTargets.length).toBe(4);
-        expect(codeTargets.map(({ condition }) => bareCondition(condition)).sort()).toEqual([
-            'default',
-            'development',
-            'import',
-            'types',
-        ]);
+        // No condition may point at a build artifact: `dist/`, `.mjs`, `.cjs` and
+        // `.d.ts` spellings are the exact regressions the source-only ruling retires.
+        for (const target of codeTargets.map(({ target }) => target)) {
+            expect(/(?:^|\/)dist\/|\.(?:mjs|cjs|d\.ts)$/u.test(target)).toBe(false);
+        }
 
-        // A dangling `development` target is a resolution failure for every dev/test
-        // host, so the file it names has to exist in the tree.
+        // Exactly 2 code targets, i.e. the two conditions above and no extras
+        // (mirrors EXPECTED_CONDITIONS in ../../scripts/check-package.ts).
+        expect(codeTargets.length).toBe(2);
+        expect(codeTargets.map(({ condition }) => bareCondition(condition)).sort()).toEqual(['default', 'types']);
+
+        // A dangling target is a resolution failure for every consumer, so the file it
+        // names has to exist in the tree.
         expect(fs.existsSync(path.join(PACKAGE_ROOT, './src/dashboard.ts'))).toBe(true);
     });
 
     it('resolves the specifier to source for a dev/test host, never to dist', async () => {
         // The claim in ../../vitest.config.ts ("no build needed") is only true because
-        // of the `development` condition above, so the proof goes through Vite's OWN
+        // every export condition names the source, so the proof goes through Vite's OWN
         // resolver rather than a re-implementation: `createServer` runs in dev mode,
-        // where Vite selects `development` ahead of `import`/`default`.
+        // where Vite selects the `default` condition (a TS host picks `types`, and both
+        // point at the same file).
         //
         // BOTH `ssr` modes are pinned because they are two different resolution
         // chains: `ssr: true` is the one Vitest's node/ssr pipeline uses, `ssr:
@@ -334,11 +338,13 @@ describe('@underload/dashboard source-first resolution', () => {
         }
     });
 
-    it('keeps the example Vite alias on the manifest development target', () => {
-        // Three mirrors of one module (manifest `development`, the example's Vite
-        // alias, the example's tsconfig `paths` below). If they disagree, a test
-        // typechecks one file and executes another. The alias exists at all because
-        // TS always applies the published `types` condition (`dist/dashboard.d.ts`).
+    it('keeps the example Vite alias on the manifest default target', () => {
+        // Three mirrors of one module (manifest `default`, the example's Vite alias,
+        // the example's tsconfig `paths` below). If they disagree, a test typechecks one
+        // file and executes another. The aliases exist at all so the example always
+        // builds against the sibling SOURCE even when an installed copy of the package
+        // (a published tarball, or a workspace link to a different revision) is present
+        // in `node_modules`.
         //
         // `DASHBOARD_ENTRY` is an operator override for the alias target; it must not
         // leak in from the environment or this assertion stops being deterministic.
@@ -352,7 +358,7 @@ describe('@underload/dashboard source-first resolution', () => {
             // specifier the manifest does not publish.
             expect(Object.keys(alias)).toEqual(['@underload/dashboard']);
 
-            // Same FILE as the `development` target (both sides absolute-resolved, so
+            // Same FILE as the `default` target (both sides absolute-resolved, so
             // a `../src` vs `src` spelling difference cannot hide a rename).
             expect(path.resolve(alias['@underload/dashboard'])).toBe(SOURCE_ABSOLUTE);
             expect(fs.existsSync(path.resolve(alias['@underload/dashboard']))).toBe(true);

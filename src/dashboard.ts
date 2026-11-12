@@ -9,10 +9,11 @@
 //   src/types/         ← the public type contracts, documented in place
 //   src/tests/         ← the conformance suite, driven through this file
 //
-// The entry and the lifecycle owner are deliberately the same module: the bundle
-// is built from this path (vite.config.ts lib.entry ./src/dashboard.ts, tsc emits
-// dist/dashboard.d.ts = package.json "types"), so the published surface cannot be
-// widened by some intermediate barrel that nobody audits.
+// The entry and the lifecycle owner are deliberately the same module: the package is
+// published as SOURCE, so this exact path is what every export condition resolves to
+// (package.json "types" and "default" both name ./src/dashboard.ts) and what the
+// example app aliases and the packaging gate executes. That is why the published
+// surface cannot be widened by some intermediate barrel that nobody audits.
 //
 // This module owns the lifecycle contract; the registries it wires together
 // (./extensions/state.ts, ./extensions/bus.ts, ./extensions/registries.ts) are

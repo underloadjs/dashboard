@@ -1,15 +1,16 @@
 {
-    // Typecheck program for the LIBRARY side of the package (src/ + the root
-    // config files). Self-contained (no `extends` outside the repo): this
-    // package is its own GitHub repo (git@github.com:underloadjs/dashboard),
+    // Typecheck program for the LIBRARY side of the package (src/ + the scripts/
+    // gate + the root config files). Self-contained (no `extends` outside the repo):
+    // this package is its own GitHub repo (git@github.com:underloadjs/dashboard),
     // so ../../../tsconfig.json is not present in a standalone checkout.
     // Options mirror the noobscript workspace root tsconfig, same approach as
     // packages/underload/bench and packages/underload/harness.
     //
     // The example app is a SEPARATE program (example/tsconfig.json) because it
     // needs DOM/React app settings and the `@underload/dashboard` path alias;
-    // `npm run typecheck` runs both. Declarations for the published entry come
-    // from tsconfig.build.json.
+    // `npm run typecheck` runs both. The package publishes SOURCE (every export
+    // condition resolves to `src/*.ts`), so there is no declaration-emit program at
+    // all — `npm run build` is this typecheck and nothing else.
     "compilerOptions": {
         "module": "ESNext",
         "target": "ESNext",
@@ -35,8 +36,9 @@
     "exclude": [
         "node_modules",
         "Temp",
-        // Build outputs (dist = published bundle + declarations, lib = stray
-        // tsc emit) are never part of any source program.
+        // Build outputs are never part of any source program: `dist` is a stale
+        // library build (the package no longer emits one) or the example site, and
+        // `lib` is stray tsc emit.
         "**/dist",
         "**/lib",
         "**/coverage",
@@ -47,7 +49,8 @@
         // The example app has its own program (example/tsconfig.json).
         "example"
     ],
-    // Library source plus the root configs (vite.config.ts, vitest.config.ts)
-    // so a typo in either fails `npm run typecheck`.
-    "include": ["src/**/*", "*.ts", "*.tsx"]
+    // Library source, the packaging gate (scripts/**, so a typo in
+    // check-package.ts fails `npm run typecheck`), and the root configs
+    // (vitest.config.ts) so a typo in either fails the same way.
+    "include": ["src/**/*", "scripts/**/*.ts", "*.ts", "*.tsx"]
 }

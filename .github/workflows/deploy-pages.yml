@@ -1,5 +1,5 @@
-# Verifies the core, builds the library and the example site, then publishes the
-# example to GitHub Pages on pushes to main.
+# Verifies the core, gates the published shape, builds the example site, then
+# publishes the example to GitHub Pages.
 #
 # This package is a STANDALONE repo (git@github.com:underloadjs/dashboard), so the
 # workflow installs from the public registry rather than from the monorepo, and it
@@ -32,9 +32,10 @@
 # setup-node dependency caching stays OFF for the same reason — `cache: npm|yarn`
 # hashes a lockfile that does not exist here.
 #
-# What gets deployed: example/dist — the harness-inspired workstation demo.
-# The library build (dist/) is NOT the Pages artifact; it has no index.html, and
-# the two outputs are disjoint directories so neither build clobbers the other.
+# What gets deployed: example/dist — the harness-inspired workstation demo. It is
+# the ONLY build output this package produces: the library publishes TypeScript
+# SOURCE (every export condition resolves to src/dashboard.ts), so there is no
+# root dist/ bundle and nothing else that could be the Pages artifact.
 #
 # The example imports '@underload/dashboard' from library SOURCE through the
 # alias in example/vite-shared.ts, so Pages always demos the committed core with
@@ -109,15 +110,21 @@ jobs:
             - name: Test example
               run: npm run test:example
 
+            # The library "build" of a source-only package emits nothing: it IS the
+            # typecheck of the published tree, kept as its own step so a break in the
+            # publish path is attributed to the publish path (turbo's `build` task and
+            # `prepublishOnly` both call it).
             - name: Build library
               run: npm run build
 
-            # Published-artifact gates, run against the dist/ that was just
-            # built: the declaration-specifier rewriter's own unit tests, then
-            # the pack/exports/NodeNext type-resolution checks. These are the
-            # same steps `prepublishOnly` runs, so CI proves the exact gate a
+            # Published-shape gates: the scripts-layer unit runner (vitest run scripts),
+            # then scripts/check-package.ts, which packs the tree and checks the
+            # source-only exports/files contract, the tarball boundary (no dist/, no
+            # .mjs/.cjs/.d.ts), the packed-source import scan, a bundler-resolution
+            # consumer typecheck and the packed entry running under vite-node. These are
+            # the same steps `prepublishOnly` runs, so CI proves the exact gate a
             # standalone `npm publish` would enforce (CI itself publishes nothing).
-            - name: Test declaration specifier script
+            - name: Test package scripts
               run: npm run test:package:scripts
 
             - name: Check published package
@@ -139,7 +146,7 @@ jobs:
               if: github.event_name != 'pull_request'
               uses: actions/upload-pages-artifact@v3
               with:
-                  # The example site build, NOT the root dist/ (library output).
+                  # The example site build — the only build output this package has.
                   path: example/dist
 
     deploy:

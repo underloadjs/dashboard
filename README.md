@@ -26,6 +26,12 @@ yarn add @underload/dashboard
 
 No runtime dependencies. One public entry point, ESM, browser- and Node-safe.
 
+The published package is **source-only**: every export condition — `types` and `default` — resolves to
+`./src/dashboard.ts`, and the tarball ships `src/**` (minus its test layer) and no build output at all. A
+consumer therefore imports TypeScript directly, which is what a bundler (Vite, esbuild, webpack) or a
+TS-aware runner (`vite-node`) consumes; there is no `dist/`, no `.mjs`/`.cjs` and no `.d.ts` to keep in
+sync with the source.
+
 ```ts
 import { dashboard, DashboardError } from '@underload/dashboard';
 import type {
@@ -354,22 +360,22 @@ stay readable on npmjs.com.
 - **[example/README.md](https://github.com/underloadjs/dashboard/blob/main/example/README.md)** — a
   separately styled React host that consumes this API through
   `DashboardPlugin`s only (the shell holds no feature list: register a plugin, a panel appears). It is **never
-  published** — `files: ["dist", "src", …test negations]` keeps the tarball to the built library,
-  the editable source its `development` condition resolves, and npm's default includes — and its
+  published** — the package is **source-only**: `files: ["src", …test negations]` ships the editable
+  source that every export condition resolves to, plus npm's default includes, and nothing else — and its
   transport is a **static simulation**: it reads fixtures in `example/src/data/fixtures.ts`, with no backend, no
   network and no `@underload/harness` import. `npm run example:dev`, `example:build`, `example:preview` and
   `test:example` drive it locally.
-- **GitHub Pages** — `.github/workflows/deploy-pages.yml` typechecks, tests, builds the library and the example,
-  then publishes `example/dist` on pushes to `main` (and on `workflow_dispatch`). Enable it once: repo
+- **GitHub Pages** — `.github/workflows/deploy-pages.yml` typechecks, tests, gates the published shape and
+  builds the example, then publishes `example/dist` on pushes to `main` (and on `workflow_dispatch`). Enable it once: repo
   **Settings → Pages → Build and deployment → Source: `GitHub Actions`**, then push or run the workflow manually.
-- **`scripts/`** — build-layer tooling, also not published.
-  `scripts/fix-declaration-specifiers.mjs` runs as the last step of `npm run build` and rewrites the emitted
-  declarations to explicit `.js` relative specifiers, which is what makes them readable by a
-  `module`/`moduleResolution: NodeNext` consumer (`--check` asserts the built tree is in that state);
-  `scripts/fix-declaration-specifiers.test.mjs` (`npm run test:package:scripts`) covers that rewrite.
-  `scripts/check-package.mjs` (`npm run test:package`) packs the library shape, compiles real NodeNext and
-  bundler consumers against the packed install and runs the built bundle in Node — the gate `prepublishOnly`
-  enforces before a release.
+- **`scripts/`** — packaging-layer tooling, also not published.
+  `scripts/check-package.ts` (`npm run test:package`, run with `yarn vite-node`) packs the published shape,
+  compiles a real `moduleResolution: bundler` consumer against the packed install and executes that packed
+  `src/dashboard.ts` through vite-node — it is the gate `prepublishOnly` enforces before a release, and it
+  also proves the source-only contract itself: every export condition resolves to `./src/dashboard.ts`,
+  `files` publishes no build directory, and the tarball carries no `dist/`, `.mjs`, `.cjs` or `.d.ts` entry.
+  `npm run test:package:scripts` (`vitest run scripts`) is the runner for unit tests of that layer; there is no
+  declaration-specifier rewriter any more, because with no `.d.ts` emit there is nothing to rewrite.
 
 ## What this framework does not do
 

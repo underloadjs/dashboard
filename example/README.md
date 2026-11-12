@@ -2,9 +2,9 @@
 
 A separately styled, harness-**inspired** demo of `@underload/dashboard`. It is
 not a shipped part of the package: `package.json` publishes
-`files: ["dist", "src", …test negations]` — the built bundle plus the editable source
-that `exports["."].development` resolves for a dev/test host — while the published
-runtime entry maps to `dist/`, and this directory is only ever built as a static site.
+`files: ["src", …test negations]` — the editable source that every export condition
+(`types` and `default`) resolves to — and no build output at all, so this directory
+can never leak into the tarball and is only ever built as a static site.
 
 The point of the example is to prove the framework is versatile rather than to
 reproduce the harness: **every** visible capability (layout, theme, transport,
@@ -41,8 +41,9 @@ Vite alias in `vite-shared.ts` selects.
 **`DASHBOARD_ENTRY` scope:** it overrides the **Vite** alias only — i.e. what
 `example:dev`, `example:build` and `test:example` actually bundle and run. The
 TypeScript side (`example/tsconfig.json` → `paths`) always typechecks against
-`../src/dashboard.ts` and is **not** redirected, so pointing `DASHBOARD_ENTRY` at a
-published `dist/` bundle exercises that build at runtime while the types still
+`../src/dashboard.ts` and is **not** redirected, so pointing `DASHBOARD_ENTRY` at an
+installed copy of the published package (or at a stub entry) exercises that build at
+runtime while the types still
 come from source. Set it to an absolute path (or one relative to `example/`);
 `path.resolve` keeps absolutes as-is.
 
@@ -77,7 +78,8 @@ is ever taken. The footer states this on every page.
 
 ## GitHub Pages
 
-`.github/workflows/deploy-pages.yml` builds the library and this site, then
+`.github/workflows/deploy-pages.yml` typechecks, runs the suites and the
+published-shape gate, builds this site, then
 publishes `example/dist` on pushes to `main` (and on `workflow_dispatch`).
 
 **One-time repo setting** (nothing else needs touching; re-run the workflow

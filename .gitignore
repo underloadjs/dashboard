@@ -2,8 +2,11 @@
 # runs `npm install`; see .github/workflows/deploy-pages.yml).
 node_modules/
 
-# Build outputs — always disjoint so one deploy never clobbers the other:
-#   dist/          library bundle + declarations (`npm run build`, published)
+# Build outputs. The library itself emits nothing (it publishes TypeScript source,
+# and every export condition resolves into `src/`), so:
+#   dist/          LEFTOVER from the retired library bundle — kept ignored so a
+#                  stale tree is never committed or packed
+#   lib/           stray tsc emit
 #   example/dist/  static example site (`npm run example:build`, GitHub Pages)
 dist/
 lib/
